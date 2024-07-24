@@ -7,8 +7,8 @@ class ResNetCHR(nn.Module):
         super(ResNetCHR, self).__init__()
         #self.dense = dense
         for item in model.children():
-            if isinstance(item,nn.BatchNorm2d):
-                item.affine=False
+            if isinstance(item, nn.BatchNorm2d):
+                item.affine = False
 
         self.features = nn.Sequential(
             model.conv1,
@@ -43,9 +43,9 @@ class ResNetCHR(nn.Module):
 
     def _upsample_add(self,x,y):
 
-        _, _, H, W=y.size()
+        _, _, H, W = y.size()
         z = F.upsample(x, size=(H, W), mode='bilinear')
-        return  torch.cat([z,y],1)
+        return torch.cat([z,y],1)
     def get_config_optim(self,lr,lrp):
         return [{'params':self.features.parameters()},
                 {'params':self.layer1.parameters()},
