@@ -70,11 +70,13 @@ class ResNetCHR(nn.Module):
         l2 = self.layer2(l1)
         l3 = self.layer3(l2)
         l4 = self.layer4(l3)
+
         l4_1 = self.cov4(l4)
         l4_2 = F.relu(l4_1)
         l4_3 = self.po1(l4_2)
         l4_4 = l4_3.view(l4_3.size(0), -1)
         o1 = self.fc1(l4_4)
+
         l3_1 = self.cov3_1(l3)
         l3_2 = F.relu(l3_1)
         l3_3 = self._upsample_add(l4,l3_2)
@@ -83,6 +85,7 @@ class ResNetCHR(nn.Module):
         l3_6 = self.po2(l3_5)
         l3_7 = l3_6.view(l3_6.size(0), -1)
         o2 = self.fc2(l3_7)
+
         l2_1 =self.cov2_1(l2)
         l2_2 = F.relu(l2_1)
         l2_3 = self._upsample_add(l3_5,l2_2)
@@ -91,6 +94,7 @@ class ResNetCHR(nn.Module):
         l2_6 = self.po3(l2_5)
         l2_7 = l2_6.view(l2_6.size(0), -1)
         o3 = self.fc3(l2_7)
+
         return o1,o2,o3
 
 def resnet101_CHR(num_classes, pretrained=True):
