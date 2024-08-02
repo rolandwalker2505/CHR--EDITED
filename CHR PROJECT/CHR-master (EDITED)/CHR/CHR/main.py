@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from engine import MultiLabelMAPEngine
-from models import resnet101_CHR
+from models import vit_b16_CHR
 from ray import XrayClassification
 from torch.nn.modules.loss import _WeightedLoss
 
@@ -79,7 +79,7 @@ def main_ray():
     num_classes = 5
 
     # load model
-    model = resnet101_CHR(num_classes, pretrained=True)
+    model = vit_b16_CHR(num_classes, pretrained=True)
 
     # define loss function (criterion)
     criterion = MultiLabelSoftMarginLoss()

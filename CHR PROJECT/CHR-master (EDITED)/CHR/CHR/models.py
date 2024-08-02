@@ -1,21 +1,17 @@
-import torch.nn as nn
-import torchvision.models as models
-import torch.nn.functional as F
 import torch
-class EfficientNetB0CHR(nn.Module):
-    def __init__(self, model, num_classes, dense=True):
-        super(EfficientNetB0CHR, self).__init__()
-        #self.dense = dense
-        for item in model.children():
-            if isinstance(item, nn.BatchNorm2d):
-                item.affine = False
+import torch.nn as nn
+import torch.nn.functional as F
+import timm
 
-        self.features = nn.Sequential(
-           model.features,
-           model.avg_pooling,
-        )
+class ViTb16CHR(nn.Module):
+    def __init__(self, model, num_classes, dense=True):
+        super(ViTb16CHR, self).__init__()
+
+        # Use ViT model
+        self.model = model
         self.fc = nn.Linear(model.fc.in_features, num_classes)
 
+        # Define custom layers for additional processing
         self.cov4 = nn.Conv2d(1280, 1280, kernel_size=1, stride=1)
         self.cov3 = nn.Conv2d(1280, 1024, kernel_size=1, stride=1)
         self.cov2 = nn.Conv2d(1024, 512, kernel_size=1, stride=1)
@@ -30,21 +26,13 @@ class EfficientNetB0CHR(nn.Module):
         self.fc2 = nn.Linear(1024, num_classes)
         self.fc3 = nn.Linear(512, num_classes)
 
-        # image normalization
-        self.image_normalization_mean = [0.485, 0.456, 0.406]
-        self.image_normalization_std = [0.229, 0.224, 0.225]
-
-        # self.dropout = nn.Dropout(p=0.5)
-        #
-        # optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
     def _upsample_add(self,x,y):
-
         _, _, H, W = y.size()
-        z = F.upsample(x, size=(H, W), mode='bilinear')
+        z = F.upsample(x, size=(H, W), mode='bilinear', align_corners=True)
         return torch.cat([z,y],1)
     def get_config_optim(self, lr, lrp):
-        return [{'params': self.features.parameters()},
+        return [{'params': self.model.parameters()},
                 {'params': self.fc.parameters()},
                 {'params': self.cov4.parameters()},
                 {'params': self.cov3.parameters()},
@@ -59,8 +47,9 @@ class EfficientNetB0CHR(nn.Module):
                 {'params': self.fc3.parameters()}]
 
     def forward(self, x):
-        x = self.features(x)
-        x = self.fc(x)
+        # Extract features from ViT
+        x = self.model.forward_features(x)  # ViT model feature extraction
+        x = x.unsqueeze(2).unsqueeze(3)  # Add spatial dimensions [B, C] -> [B, C, 1, 1]
 
         l4 = self.cov4(x)
         l4 = F.relu(l4)
@@ -70,7 +59,7 @@ class EfficientNetB0CHR(nn.Module):
 
         l3 = self.cov3_1(x)
         l3 = F.relu(l3)
-        l3_1 = self._upsample_add(l4,l3)
+        l3_1 = self._upsample_add(l4, l3)
         l3_2 = self.cov3(l3_1)
         l3_2 = F.relu(l3_2)
         l3_3 = self.po2(l3_2)
@@ -79,17 +68,15 @@ class EfficientNetB0CHR(nn.Module):
 
         l2 = self.cov2_1(x)
         l2 = F.relu(l2)
-        l2_1 = self._upsample_add(l3_2,l2)
+        l2_1 = self._upsample_add(l3_2, l2)
         l2_2 = self.cov2(l2_1)
         l2_2 = F.relu(l2_2)
         l2_3 = self.po3(l2_2)
         l2_4 = l2_3.view(l2_3.size(0), -1)
         o3 = self.fc3(l2_4)
-
         return o1,o2,o3
 
-def efficientnet_CHR(num_classes, pretrained=True):
-    model = models.efficientnet_b0(pretrained=pretrained)
-
-    return EfficientNetB0CHR(model, num_classes )
+def vit_b16_CHR(num_classes, pretrained=True):
+    model = timm.create_model('vit_base_patch16_224', pretrained=pretrained)
+    return ViTb16CHR(model, num_classes )
 
