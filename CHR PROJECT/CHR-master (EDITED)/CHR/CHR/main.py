@@ -68,7 +68,7 @@ class MultiLabelSoftMarginLoss(_WeightedLoss):
 def main_ray():
     global args, best_prec1, use_gpu
     args = parser.parse_args()
-    args.data='dataset'
+    args.data = 'dataset'
     args.resume = './CHR/models-/checkpoint.pth.tar'
 
     use_gpu = torch.cuda.is_available()
