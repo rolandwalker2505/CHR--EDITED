@@ -1,35 +1,39 @@
+import torch
 from torch import nn
 from torchvision.models.vision_transformer import vit_b_16
 from torchvision.models import ViT_B_16_Weights
 import torch.nn.functional as F
 
+
 class ViTb16CHR(nn.Module):
-    def __init__(self, num_classes, pretrained=True):
+    def __init__(self, model, preprocessing, num_classes):
         super(ViTb16CHR, self).__init__()
 
-        # Use ViT model
-        self.model = vit_b_16(weights=ViT_B_16_Weights.DEFAULT) if pretrained else vit_b_16(pretrained=False)
+        self.model = model
+        self.preprocessing = preprocessing
 
-        # Define custom layers for additional processing
-        self.cov4 = nn.Conv2d(768, 768, kernel_size=1, stride=1)
-        self.cov3 = nn.Conv2d(768, 512, kernel_size=1, stride=1)
-        self.cov2 = nn.Conv2d(512, 256, kernel_size=1, stride=1)
+        self.cov4 = nn.Conv2d(2048, 2048, kernel_size=1, stride=1)
+        self.cov3 = nn.Conv2d(3072, 1024, kernel_size=1, stride=1)
+        self.cov2 = nn.Conv2d(1536, 512, kernel_size=1, stride=1)
 
-        self.cov3_1 = nn.Conv2d(512, 512, kernel_size=1, stride=1)
-        self.cov2_1 = nn.Conv2d(256, 256, kernel_size=1, stride=1)
+        self.cov3_1 = nn.Conv2d(1024, 1024, kernel_size=1, stride=1)
+        self.cov2_1 = nn.Conv2d(512, 512, kernel_size=1, stride=1)
 
-        self.po1 = nn.AvgPool2d(8, stride=1)
-        self.po2 = nn.AvgPool2d(16, stride=1)
-        self.po3 = nn.AvgPool2d(32, stride=1)
+        self.po1 = nn.AdaptiveAvgPool2d(1)
+        self.po2 = nn.AdaptiveAvgPool2d(1)
+        self.po3 = nn.AdaptiveAvgPool2d(1)
 
-        self.fc1 = nn.Linear(768, num_classes)
-        self.fc2 = nn.Linear(512, num_classes)
-        self.fc3 = nn.Linear(256, num_classes)
+        self.fc1 = nn.Linear(2048, num_classes)
+        self.fc2 = nn.Linear(1024, num_classes)
+        self.fc3 = nn.Linear(512, num_classes)
+
+        self.image_normalization_mean = [0.485, 0.456, 0.406]
+        self.image_normalization_std = [0.229, 0.224, 0.225]
 
     def _upsample_add(self, x, y):
         _, _, H, W = y.size()
-        z = F.upsample(x, size=(H, W), mode='bilinear', align_corners=True)
-        return torch.cat([z, y], dim=1)
+        z = F.upsample(x, size=(H, W), mode='bilinear')
+        return torch.cat([k,y],1)
 
     def get_config_optim(self, lr, lrp):
         return [{'params': self.model.parameters()},
@@ -46,9 +50,20 @@ class ViTb16CHR(nn.Module):
                 {'params': self.po3.parameters()}]
 
     def forward(self, x):
+        # Apply preprocessing to the input
+        x = self.preprocessing(x)
+
         # Extract features from ViT
-        x = self.model(x)  # ViT model feature extraction
-        x = x.unsqueeze(2).unsqueeze(3)  # Add spatial dimensions [B, C] -> [B, C, 1, 1]
+        x = self.model(x)
+
+        # Ensure x has the correct shape for Conv2d
+        if x.dim() == 3:  # If ViT output is 3D (tokens), need reshaping
+            batch_size = x.size(0)
+            num_tokens = x.size(1)
+            token_dim = x.size(2)
+            # Assuming tokens are 1D and reshaping to 2D for Conv2d
+            x = x.view(batch_size, num_tokens, token_dim, 1)
+            x = x.permute(0, 3, 2, 1)  # Change to (N, C, H, W) format
 
         l4 = self.cov4(x)
         l4 = F.relu(l4)
@@ -76,5 +91,8 @@ class ViTb16CHR(nn.Module):
 
         return o1, o2, o3
 
+
 def vit_b16_CHR(num_classes, pretrained=True):
-    return ViTb16CHR(num_classes=num_classes, pretrained=pretrained)
+    model = vit_b_16(weights=ViT_B_16_Weights.DEFAULT)
+    preprocessing = ViT_B_16_Weights.DEFAULT.transforms()
+    return ViTb16CHR(model, preprocessing, num_classes)

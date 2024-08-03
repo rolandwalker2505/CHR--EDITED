@@ -1,7 +1,7 @@
 import argparse
 import torch
 import torch.nn as nn
-from engine import Engine
+from engine import MultiLabelMAPEngine
 from models import vit_b16_CHR
 from ray import XrayClassification
 from torch.nn.modules.loss import _WeightedLoss
@@ -89,9 +89,8 @@ def main_ray():
         'test_image_size': args.image_size
     }
 
-    engine = Engine(state)
-    engine.run(training=True, model=model, criterion=criterion, data_loader=train_dataset, optimizer=optimizer)
-    engine.run(training=False, model=model, criterion=criterion, data_loader=val_dataset)
+    engine = MultiLabelMAPEngine(state)
+    engine.learning(model, criterion, train_dataset, val_dataset, optimizer)
 
 if __name__ == '__main__':
     main_ray()
