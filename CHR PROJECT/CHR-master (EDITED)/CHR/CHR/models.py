@@ -1,15 +1,15 @@
-import torch
-import torch.nn as nn
+from torch import nn
+from torchvision.models.vision_transformer import vit_b_16
+from torchvision.models import ViT_B_16_Weights
 import torch.nn.functional as F
 import timm
 
 class ViTb16CHR(nn.Module):
-    def __init__(self, model, num_classes, dense=True):
+    def __init__(self, model, num_classes):
         super(ViTb16CHR, self).__init__()
 
         # Use ViT model
         self.model = model
-        self.fc = nn.Linear(model.fc.in_features, num_classes)
 
         # Define custom layers for additional processing
         self.cov4 = nn.Conv2d(1280, 1280, kernel_size=1, stride=1)
@@ -22,6 +22,7 @@ class ViTb16CHR(nn.Module):
         self.po1 = nn.AvgPool2d(7, stride=1)
         self.po2 = nn.AvgPool2d(14, stride=1)
         self.po3 = nn.AvgPool2d(28, stride=1)
+
         self.fc1 = nn.Linear(1280, num_classes)
         self.fc2 = nn.Linear(1024, num_classes)
         self.fc3 = nn.Linear(512, num_classes)
@@ -30,7 +31,7 @@ class ViTb16CHR(nn.Module):
     def _upsample_add(self,x,y):
         _, _, H, W = y.size()
         z = F.upsample(x, size=(H, W), mode='bilinear', align_corners=True)
-        return torch.cat([z,y],1)
+        return nn.cat([z,y],1)
     def get_config_optim(self, lr, lrp):
         return [{'params': self.model.parameters()},
                 {'params': self.fc.parameters()},
@@ -74,9 +75,10 @@ class ViTb16CHR(nn.Module):
         l2_3 = self.po3(l2_2)
         l2_4 = l2_3.view(l2_3.size(0), -1)
         o3 = self.fc3(l2_4)
-        return o1,o2,o3
+
+        return o1, o2, o3
 
 def vit_b16_CHR(num_classes, pretrained=True):
-    model = timm.create_model('vit_base_patch16_224', pretrained=pretrained)
+    model = vit_b_16(weights = ViT_B_16_Weights, pretrained=pretrained, num_classes=num_classes)
     return ViTb16CHR(model, num_classes )
 
