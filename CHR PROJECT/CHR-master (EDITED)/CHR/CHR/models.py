@@ -21,9 +21,9 @@ class ResNetCHR(nn.Module):
         self.layer3 = model.layer3
         self.layer4 = model.layer4
 
-        self.cov4 = nn.Conv2d(2048, 2048, kernel_size=1, stride=1)
-        self.cov3 = nn.Conv2d(3072, 1024, kernel_size=1, stride=1)
-        self.cov2 = nn.Conv2d(1536, 512, kernel_size=1, stride=1)
+        self.cov4 = nn.Conv2d(2048, 2048, kernel_size=3, stride=1)
+        self.cov3 = nn.Conv2d(3072, 1024, kernel_size=3, stride=1)
+        self.cov2 = nn.Conv2d(1536, 512, kernel_size=3, stride=1)
 
         self.cov3_1 = nn.Conv2d(1024, 1024, kernel_size=1, stride=1)
         self.cov2_1 = nn.Conv2d(512, 512, kernel_size=1, stride=1)
@@ -35,7 +35,7 @@ class ResNetCHR(nn.Module):
         self.fc2 = nn.Linear(1024, num_classes)
         self.fc3 = nn.Linear(512, num_classes)
 
-
+        self.dropout = nn.Dropout(p=0.5)
 
         # image normalization
         self.image_normalization_mean = [0.485, 0.456, 0.406]
@@ -75,6 +75,7 @@ class ResNetCHR(nn.Module):
         l4_2 = F.relu(l4_1)
         l4_3 = self.po1(l4_2)
         l4_4 = l4_3.view(l4_3.size(0), -1)
+        l4_4 = self.dropout(l4_4)
         o1 = self.fc1(l4_4)
 
         l3_1 = self.cov3_1(l3)
@@ -86,7 +87,7 @@ class ResNetCHR(nn.Module):
         l3_7 = l3_6.view(l3_6.size(0), -1)
         o2 = self.fc2(l3_7)
 
-        l2_1 =self.cov2_1(l2)
+        l2_1 = self.cov2_1(l2)
         l2_2 = F.relu(l2_1)
         l2_3 = self._upsample_add(l3_5,l2_2)
         l2_4 = self.cov2(l2_3)
