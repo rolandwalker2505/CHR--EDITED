@@ -21,9 +21,9 @@ class ResNetCHR(nn.Module):
         self.layer3 = model.layer3
         self.layer4 = model.layer4
 
-        self.cov4 = nn.Conv2d(2048, 2048, kernel_size=3, stride=1)
-        self.cov3 = nn.Conv2d(3072, 1024, kernel_size=3, stride=1)
-        self.cov2 = nn.Conv2d(1536, 512, kernel_size=3, stride=1)
+        self.cov4 = nn.Conv2d(2048, 2048, kernel_size=3, stride=1, padding=1)
+        self.cov3 = nn.Conv2d(3072, 1024, kernel_size=3, stride=1, padding=1)
+        self.cov2 = nn.Conv2d(1536, 512, kernel_size=3, stride=1, padding=1)
 
         self.cov3_1 = nn.Conv2d(1024, 1024, kernel_size=1, stride=1)
         self.cov2_1 = nn.Conv2d(512, 512, kernel_size=1, stride=1)
@@ -85,6 +85,7 @@ class ResNetCHR(nn.Module):
         l3_5 = F.relu(l3_4)
         l3_6 = self.po2(l3_5)
         l3_7 = l3_6.view(l3_6.size(0), -1)
+        l3_7 = self.dropout(l3_7)
         o2 = self.fc2(l3_7)
 
         l2_1 = self.cov2_1(l2)
@@ -94,6 +95,7 @@ class ResNetCHR(nn.Module):
         l2_5 = F.relu(l2_4)
         l2_6 = self.po3(l2_5)
         l2_7 = l2_6.view(l2_6.size(0), -1)
+        l2_7 = self.dropout(l2_7)
         o3 = self.fc3(l2_7)
 
         return o1,o2,o3
@@ -102,4 +104,3 @@ def resnet101_CHR(num_classes, pretrained=True):
     model = models.resnet101(pretrained)
 
     return ResNetCHR(model, num_classes )
-
